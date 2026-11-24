@@ -104,5 +104,6 @@ describe('ranges', () => {
     expect(ageBand(readAge('Age: 8\nmonths'))).toBe('infant')
     expect(scrubText('PSA 1.2 ng/mL 0.0-2000').scrubbed).toContain('0.0-2000')
     expect(scrubText('DOB: 5/3-1990').scrubbed).not.toContain('1990')
+    expect(scrubText('DOB: 3/25-1990').scrubbed).not.toContain('1990')
   })
 })
