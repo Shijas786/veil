@@ -98,4 +98,10 @@ describe('ranges', () => {
     expect(flagFromRange({ name: 'Platelets', value: '95,000', unit: '/µL', range: '1,50,000 - 4,50,000', flag: 'unknown' })).toBe('low')
     expect(readAge('Age: 34  Mobile: 98470 12345')).toBe(34)
   })
+
+  it('reads million-scale counts, wrapped infant ages and small-to-large ranges', () => {
+    expect(flagFromRange({ name: 'Platelets', value: '1,200,000', unit: '/µL', range: '150,000 – 450,000', flag: 'unknown' })).toBe('high')
+    expect(ageBand(readAge('Age: 8\nmonths'))).toBe('infant')
+    expect(scrubText('PSA 1.2 ng/mL 0.0-2000').scrubbed).toContain('0.0-2000')
+  })
 })
