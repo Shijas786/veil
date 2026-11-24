@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Anonymous users can only touch their own anonymous reports. No identity field is accepted.
+    match /users/{uid}/reports/{id} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['createdAt', 'panel', 'headline', 'urgency', 'analytes', 'ageBand', 'sex'])
+        && request.resource.data.analytes is list
+        && request.resource.data.analytes.size() <= 40;
+    }
+  }
+}
