@@ -146,8 +146,9 @@ function need(): NonNullable<typeof ai> {
   return ai
 }
 
-const readerMode = (privacy: PrivacyMode, allowCloud: boolean) =>
-  privacy === 'strict' && !allowCloud ? InferenceMode.ONLY_ON_DEVICE : InferenceMode.PREFER_ON_DEVICE
+// A photo cannot be rule-scrubbed, so without consent it is only ever read on the device.
+const readerMode = (privacy: PrivacyMode, allowCloud: boolean, image: boolean) =>
+  (privacy === 'strict' || image) && !allowCloud ? InferenceMode.ONLY_ON_DEVICE : InferenceMode.PREFER_ON_DEVICE
 
 const EN_OUT = [{ type: 'text' as const, languages: ['en'] }]
 
@@ -216,6 +217,9 @@ export async function deviceState(): Promise<DeviceState> {
 
 /** The mode actually handed to Firebase AI Logic. Only differs when the device probe hung. */
 function effective(mode: InferenceMode): InferenceMode {
+  // Never rely on the SDK to refuse: without a local model, a device-only call must not be made at all.
+  if (mode === InferenceMode.ONLY_ON_DEVICE && !(globalThis as { LanguageModel?: unknown }).LanguageModel)
+    throw new VeilError('needs_device_model', 'This browser has no on-device model.')
   if (!deviceHung) return mode
   if (mode === InferenceMode.ONLY_ON_DEVICE) throw new VeilError('needs_device_model', 'The on-device model is not responding in this browser.')
   return InferenceMode.ONLY_IN_CLOUD
@@ -284,7 +288,7 @@ export async function readReport(opts: {
   privacy: PrivacyMode
   allowCloud: boolean
 }): Promise<{ extraction: Extraction; source: Source }> {
-  const wanted = readerMode(opts.privacy, opts.allowCloud)
+  const wanted = readerMode(opts.privacy, opts.allowCloud, Boolean(opts.image))
   const strict = wanted === InferenceMode.ONLY_ON_DEVICE
   let mode: InferenceMode = wanted
   const t0 = performance.now()
@@ -370,6 +374,8 @@ export async function ask(
   packet: Packet,
   explanation: Explanation,
   language: string,
+  allowCloud: boolean,
+  known: string[],
   onChunk: (text: string) => void,
 ): Promise<Source> {
   const prompt = `You are answering a follow-up question about a lab report. Answer in ${language}, in at most 4 short sentences, plainly. Do not diagnose or prescribe; suggest asking a doctor where it matters.
@@ -377,10 +383,10 @@ export async function ask(
 LAB VALUES: ${JSON.stringify(packet.analytes)}
 SUMMARY ALREADY GIVEN: ${explanation.summary}
 
-QUESTION: ${scrubText(question).scrubbed}`
+QUESTION: ${scrubText(question, known).scrubbed}`
   const t0 = performance.now()
   try {
-    const mode = effective(InferenceMode.PREFER_ON_DEVICE)
+    const mode = effective(allowCloud ? InferenceMode.PREFER_ON_DEVICE : InferenceMode.ONLY_ON_DEVICE)
     const result = await askModel(mode).generateContentStream(prompt)
     let text = ''
     for await (const chunk of result.stream) {
@@ -401,6 +407,6 @@ QUESTION: ${scrubText(question).scrubbed}`
     })
     return source
   } catch (e) {
-    throw wrap(e, false)
+    throw wrap(e, !allowCloud)
   }
 }

@@ -41,6 +41,8 @@ export function Results(props: {
   packet: Packet
   explanation: Explanation
   source: Source
+  /** Identifiers sealed from the report, so they are also sealed out of follow-up questions. */
+  known: string[]
   language: string
   ledger: LedgerEntry[]
   saved: boolean
@@ -52,6 +54,8 @@ export function Results(props: {
   const [q, setQ] = useState('')
   const [thread, setThread] = useState<{ q: string; a: string; source?: Source }[]>([])
   const [busy, setBusy] = useState(false)
+  // Follow-ups may use the cloud only if the user already opened the airlock to it.
+  const cloudOk = props.source === 'in_cloud'
   const left = props.ledger.filter((l) => l.leftDevice).length
   const exposed = props.ledger.some((l) => l.identityExposed)
 
@@ -65,7 +69,7 @@ export function Results(props: {
     setQ('')
     setThread((t) => [...t, { q: question, a: '' }])
     try {
-      const source = await ask(question, packet, ex, props.language, (text) =>
+      const source = await ask(question, packet, ex, props.language, cloudOk, props.known, (text) =>
         setThread((t) => t.map((m, i) => (i === t.length - 1 ? { ...m, a: text } : m))),
       )
       setThread((t) => t.map((m, i) => (i === t.length - 1 ? { ...m, source } : m)))
@@ -93,7 +97,7 @@ export function Results(props: {
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             {packet.analytes.map((a, i) => {
-              const item = ex.items.find((it) => it.name.toLowerCase() === a.name.toLowerCase()) ?? ex.items[i]
+              const item = ex.items.find((it) => it.name.toLowerCase() === a.name.toLowerCase()) ?? (ex.items.length === packet.analytes.length ? ex.items[i] : undefined)
               const s = STATUS[a.flag] ?? STATUS.unknown
               return (
                 <motion.article
@@ -159,7 +163,7 @@ export function Results(props: {
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 }} className="glass rounded-3xl p-5">
             <div className="flex items-center justify-between">
               <p className="text-[14.5px] font-semibold">Ask a follow-up</p>
-              <span className="text-[11px] text-mist">on-device first</span>
+              <span className="text-[11px] text-mist">{cloudOk ? 'on-device first, then cloud' : 'on-device only'}</span>
             </div>
             <div className="scroll-thin mt-3 max-h-72 space-y-3 overflow-auto">
               {thread.length === 0 && (
