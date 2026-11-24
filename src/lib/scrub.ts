@@ -10,17 +10,17 @@ const RULES: { kind: string; re: RegExp; group?: number }[] = [
   {
     kind: 'Phone',
     // Shaped so that value ranges such as 4000-10000 are never mistaken for a phone number.
-    re: /(?:(?:ph(?:one)?|tel|mob(?:ile)?|contact|whatsapp)\.?\s*(?:no\.?)?\s*[:\-]?\s*\+?[\d()][\d() -]{6,16}\d|\+\d{1,3}[ -]?\d[\d -]{7,13}\d|\(\d{3,5}\)[ -]?\d{3,4}[ -]?\d{4}|\b[6-9]\d{4}[ -]?\d{5}\b|\b0\d{2,4}[ -]\d{3,4}[ -]\d{4}\b)/gi,
+    re: /(?:(?:ph(?:one)?|tel|mob(?:ile)?|contact|whatsapp)\.?\s*(?:no\.?)?\s*[:\-]?\s*\+?[\d()][\d() -]{6,16}\d|\+\d{1,3}[ -]?\d[\d -]{7,13}\d|\(\d{3,5}\)[ -]?\d{3,4}[ -]?\d{4}|\b[6-9]\d{4} ?\d{5}\b|\b0\d{2,4}[ -]\d{3,4}[ -]\d{4}\b)/gi,
   },
   { kind: 'Aadhaar', re: /\b\d{4}\s\d{4}\s\d{4}\b/g },
   {
     kind: 'Name',
-    re: /(?:patient(?:'s)?\s*name|name\s*of\s*patient|name|patient)\s*[:\-]\s*((?:(?:mr|mrs|ms|miss|master|dr|shri|smt)\.?\s+)?[A-Z][A-Za-z.'-]+(?:[ \t]{1,2}[A-Z][A-Za-z.'-]+){0,3})/gi,
+    re: /(?:patient(?:'s)?\s*name|name\s*of\s*patient|name|patient)\s*[:\-]\s*((?:(?:mr|mrs|ms|miss|master|dr|shri|smt)\.?\s+)?[\p{L}\p{M}.'-]+(?:[ \t]{1,2}[\p{L}\p{M}.'-]+){0,3})/giu,
     group: 1,
   },
   {
     kind: 'Doctor',
-    re: /(?:ref(?:erred|\.)?\s*(?:by|doctor|dr)?|consultant|physician|doctor)\s*[:\-]\s*((?:dr\.?\s+)?[A-Z][A-Za-z.'-]+(?:[ \t]{1,2}[A-Z][A-Za-z.'-]+){0,3})/gi,
+    re: /(?:ref(?:erred|\.)?\s*(?:by|doctor|dr)?|consultant|physician|doctor)\s*[:\-]\s*((?:dr\.?\s+)?[\p{L}\p{M}.'-]+(?:[ \t]{1,2}[\p{L}\p{M}.'-]+){0,3})/giu,
     group: 1,
   },
   {
@@ -30,7 +30,7 @@ const RULES: { kind: string; re: RegExp; group?: number }[] = [
   },
   {
     kind: 'Date',
-    re: /\b(?:\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\d{1,2}[\s-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-,]+\d{2,4})(?:[ ,]+\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?)?/gi,
+    re: /\b(?:\d{1,2}([\/.-])\d{1,2}\1\d{2,4}|\d{1,2}[\s-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-,]+\d{2,4})(?:[ ,]+\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?)?/gi,
   },
   {
     kind: 'Address',
@@ -98,9 +98,14 @@ export function scrubText(text: string, modelFound: string[] = []) {
 }
 
 export function readAge(text: string): number | undefined {
-  const m = /\bage\s*(?:\/\s*(?:sex|gender))?\s*[:\-]?\s*(\d{1,3})\s*(?:y|yrs?|years?)?/i.exec(text)
+  const m = /\bage\s*(?:\/\s*(?:sex|gender))?\s*[:\-]?\s*(\d{1,3})\s*(days?|weeks?|wks?|months?|mos?)?/i.exec(text)
   const n = m ? Number(m[1]) : NaN
-  return n > 0 && n < 120 ? n : undefined
+  if (!(n > 0)) return undefined
+  const unit = m?.[2]?.toLowerCase() ?? ''
+  if (unit.startsWith('d')) return n / 365
+  if (unit.startsWith('w')) return n / 52
+  if (unit.startsWith('m')) return n / 12
+  return n < 120 ? n : undefined
 }
 
 export function readSex(text: string): string | undefined {
@@ -110,7 +115,7 @@ export function readSex(text: string): string | undefined {
 }
 
 export function ageBand(age?: number): string {
-  if (!age) return 'adult (age withheld)'
+  if (age === undefined || !(age > 0)) return 'adult (age withheld)'
   if (age < 2) return 'infant'
   if (age < 13) return 'child'
   if (age < 18) return 'teen'
@@ -118,7 +123,7 @@ export function ageBand(age?: number): string {
   return age >= 80 ? '80+' : `${lo}-${lo + 9}`
 }
 
-const SAFE_TEXT = /^[\p{L}\p{N}\s.,%/()\-+<>=:μµ^*'·×]{0,80}$/u
+const SAFE_TEXT = /^[\p{L}\p{N}\s.,%/()\-+<>=:μµ^*'·×–—≤≥]{0,80}$/u
 
 /**
  * Builds the outbound packet and enforces the boundary: every field is
@@ -137,7 +142,7 @@ export function buildPacket(
     const low = s.toLowerCase()
     if (known.some((k) => low.includes(k))) return true
     if (!SAFE_TEXT.test(s)) return true
-    return findSpans(s).some((sp) => sp.kind !== 'Date' && sp.kind !== 'Phone') || /@/.test(s)
+    return findSpans(s).length > 0 || /@/.test(s)
   }
   const clean = analytes.filter((a) => {
     const bad = !a.name.trim() || /[<>:=]/.test(a.name) || [a.name, a.value, a.unit, a.range].some(leaks)
@@ -155,36 +160,53 @@ export function buildPacket(
   }
 }
 
+/** Reads 7,400 as 7400 and 4,8 as 4.8. */
+const plain = (s: string) => s.replace(/(\d),(?=\d{3}(?!\d))/g, '$1').replace(/(\d),(?=\d)/g, '$1.')
+
+const NUM = String.raw`(-?\d+(?:\.\d+)?)`
+const BETWEEN = new RegExp(String.raw`${NUM}\s*(?:-|–|—|to)\s*${NUM}`, 'i')
+const UNDER = new RegExp(String.raw`(<=|≤|<|up to|upto|less than|below)\s*${NUM}`, 'i')
+const OVER = new RegExp(String.raw`(>=|≥|>|more than|above)\s*${NUM}`, 'i')
+
+type Bounds = { lo: number; hi: number; kind: 'between' } | { lo: number; hi: number; kind: 'under' | 'over'; strict: boolean }
+
+function bounds(range: string): Bounds | null {
+  const r = plain(range)
+  const between = BETWEEN.exec(r)
+  if (between) {
+    const lo = Number(between[1])
+    const hi = Number(between[2])
+    return hi > lo ? { lo, hi, kind: 'between' } : null
+  }
+  const under = UNDER.exec(r)
+  if (under) {
+    const hi = Number(under[2])
+    return hi > 0 ? { lo: 0, hi, kind: 'under', strict: !/<=|≤|up ?to/i.test(under[1]) } : null
+  }
+  const over = OVER.exec(r)
+  if (over) {
+    const lo = Number(over[2])
+    return { lo, hi: lo * 2 || 1, kind: 'over', strict: !/>=|≥/.test(over[1]) }
+  }
+  return null
+}
+
+const valueOf = (a: Analyte) => parseFloat(plain(a.value))
+
 /** Where the value sits relative to its reference range, 0..1 (0.25-0.75 is in range). */
 export function rangePosition(a: Analyte): number | null {
-  const v = parseFloat(a.value.replace(/,/g, ''))
-  if (Number.isNaN(v)) return null
-  const r = a.range.replace(/,/g, '')
-  let lo: number | undefined
-  let hi: number | undefined
-  const between = /(-?\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(-?\d+(?:\.\d+)?)/.exec(r)
-  const under = /(?:<|≤|up to|upto|less than|below)\s*=?\s*(\d+(?:\.\d+)?)/i.exec(r)
-  const over = /(?:>|≥|more than|above)\s*=?\s*(\d+(?:\.\d+)?)/i.exec(r)
-  if (between) {
-    lo = Number(between[1])
-    hi = Number(between[2])
-  } else if (under) {
-    lo = 0
-    hi = Number(under[1])
-  } else if (over) {
-    lo = Number(over[1])
-    hi = lo * 2 || 1
-    const p = 0.25 + ((v - lo) / (hi - lo)) * 0.5
-    return Math.max(0.04, Math.min(0.96, p))
-  }
-  if (lo === undefined || hi === undefined || hi <= lo) return null
-  const p = 0.25 + ((v - lo) / (hi - lo)) * 0.5
+  const v = valueOf(a)
+  const b = bounds(a.range)
+  if (Number.isNaN(v) || !b) return null
+  const p = 0.25 + ((v - b.lo) / (b.hi - b.lo)) * 0.5
   return Math.max(0.04, Math.min(0.96, p))
 }
 
 export function flagFromRange(a: Analyte): Analyte['flag'] {
-  const p = rangePosition(a)
-  if (p === null) return a.flag
-  if (/(?:>|≥|more than|above)/i.test(a.range) && !/-|–|to/.test(a.range)) return p < 0.25 ? 'low' : 'normal'
-  return p < 0.25 ? 'low' : p > 0.75 ? 'high' : 'normal'
+  const v = valueOf(a)
+  const b = bounds(a.range)
+  if (Number.isNaN(v) || !b) return a.flag
+  if (b.kind === 'under') return v > b.hi || (b.strict && v === b.hi) ? 'high' : 'normal'
+  if (b.kind === 'over') return v < b.lo || (b.strict && v === b.lo) ? 'low' : 'normal'
+  return v < b.lo ? 'low' : v > b.hi ? 'high' : 'normal'
 }

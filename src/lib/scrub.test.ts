@@ -60,4 +60,32 @@ describe('ranges', () => {
     expect(flagFromRange(a('TSH', '2.4', '0.4 - 4.0'))).toBe('normal')
     expect(rangePosition(a('X', '5', '0 - 10'))).toBeCloseTo(0.5)
   })
+
+  it('keeps compact decimal ranges and typographic range symbols', () => {
+    expect(scrubText('TSH 6.2 mIU/L 3.5-10.5').scrubbed).toContain('3.5-10.5')
+    const a = { name: 'LDL', value: '90', unit: 'mg/dL', range: '≤ 100', flag: 'normal' as const }
+    const b = { name: 'WBC', value: '7400', unit: '/µL', range: '4000 – 10000', flag: 'normal' as const }
+    expect(buildPacket('Lipids', [a, b], []).packet.analytes).toHaveLength(2)
+  })
+
+  it('drops a packet field that carries a phone number or a date', () => {
+    const a = { name: 'Hb', value: '98470 12345', unit: 'g/dL', range: '12-15', flag: 'normal' as const }
+    const b = { name: 'RBC', value: '4.1', unit: '12/03/2026', range: '3.8-4.8', flag: 'normal' as const }
+    expect(buildPacket('CBC', [a, b], []).packet.analytes).toHaveLength(0)
+  })
+
+  it('seals names written in other scripts', () => {
+    expect(scrubText('Patient Name: अनन्या नायर\nHb 9.8').scrubbed).not.toContain('अनन्या')
+  })
+
+  it('treats strict cutoffs, decimal commas and infant ages correctly', () => {
+    const f = (value: string, range: string) => flagFromRange({ name: 'x', value, unit: '', range, flag: 'unknown' })
+    expect(f('100', '< 100')).toBe('high')
+    expect(f('100', '<= 100')).toBe('normal')
+    expect(f('40', '> 40')).toBe('low')
+    expect(f('4,8', '4 - 5')).toBe('normal')
+    expect(f('7,400', '4,000 - 10,000')).toBe('normal')
+    expect(ageBand(readAge('Age: 14 days'))).toBe('infant')
+    expect(ageBand(readAge('Age: 8 months'))).toBe('infant')
+  })
 })
