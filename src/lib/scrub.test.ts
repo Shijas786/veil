@@ -88,4 +88,14 @@ describe('ranges', () => {
     expect(ageBand(readAge('Age: 14 days'))).toBe('infant')
     expect(ageBand(readAge('Age: 8 months'))).toBe('infant')
   })
+
+  it('seals hyphenated mobiles and mixed-separator dates, and reads Indian digit grouping', () => {
+    const out = scrubText('Mob 98470-12345\nDOB: 12/03-1990\nPlatelets 95,000 1,50,000 - 4,50,000').scrubbed
+    expect(out).not.toContain('98470')
+    expect(out).not.toContain('1990')
+    expect(out).toContain('1,50,000 - 4,50,000')
+    expect(scrubText('Call 98470-12345').scrubbed).not.toContain('98470')
+    expect(flagFromRange({ name: 'Platelets', value: '95,000', unit: '/µL', range: '1,50,000 - 4,50,000', flag: 'unknown' })).toBe('low')
+    expect(readAge('Age: 34  Mobile: 98470 12345')).toBe(34)
+  })
 })

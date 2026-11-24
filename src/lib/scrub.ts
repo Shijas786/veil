@@ -10,7 +10,7 @@ const RULES: { kind: string; re: RegExp; group?: number }[] = [
   {
     kind: 'Phone',
     // Shaped so that value ranges such as 4000-10000 are never mistaken for a phone number.
-    re: /(?:(?:ph(?:one)?|tel|mob(?:ile)?|contact|whatsapp)\.?\s*(?:no\.?)?\s*[:\-]?\s*\+?[\d()][\d() -]{6,16}\d|\+\d{1,3}[ -]?\d[\d -]{7,13}\d|\(\d{3,5}\)[ -]?\d{3,4}[ -]?\d{4}|\b[6-9]\d{4} ?\d{5}\b|\b0\d{2,4}[ -]\d{3,4}[ -]\d{4}\b)/gi,
+    re: /(?:(?:ph(?:one)?|tel|mob(?:ile)?|contact|whatsapp)\.?\s*(?:no\.?)?\s*[:\-]?\s*\+?[\d()][\d() -]{6,16}\d|\+\d{1,3}[ -]?\d[\d -]{7,13}\d|\(\d{3,5}\)[ -]?\d{3,4}[ -]?\d{4}|\b[6-9]\d{4}[ -]?\d{5}\b|\b0\d{2,4}[ -]\d{3,4}[ -]\d{4}\b)/gi,
   },
   { kind: 'Aadhaar', re: /\b\d{4}\s\d{4}\s\d{4}\b/g },
   {
@@ -30,7 +30,7 @@ const RULES: { kind: string; re: RegExp; group?: number }[] = [
   },
   {
     kind: 'Date',
-    re: /\b(?:\d{1,2}([\/.-])\d{1,2}\1\d{2,4}|\d{1,2}[\s-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-,]+\d{2,4})(?:[ ,]+\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?)?/gi,
+    re: /\b(?:\d{1,2}([\/.-])\d{1,2}\1\d{2,4}|\d{1,2}[\/.-]\d{1,2}[\/.-](?:19|20)\d{2}\b|\d{1,2}[\s-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-,]+\d{2,4})(?:[ ,]+\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?)?/gi,
   },
   {
     kind: 'Address',
@@ -98,7 +98,7 @@ export function scrubText(text: string, modelFound: string[] = []) {
 }
 
 export function readAge(text: string): number | undefined {
-  const m = /\bage\s*(?:\/\s*(?:sex|gender))?\s*[:\-]?\s*(\d{1,3})\s*(days?|weeks?|wks?|months?|mos?)?/i.exec(text)
+  const m = /\bage\s*(?:\/\s*(?:sex|gender))?\s*[:\-]?\s*(\d{1,3})[ \t]*(days?|weeks?|wks?|months?|mos?)?\b/i.exec(text)
   const n = m ? Number(m[1]) : NaN
   if (!(n > 0)) return undefined
   const unit = m?.[2]?.toLowerCase() ?? ''
@@ -160,8 +160,9 @@ export function buildPacket(
   }
 }
 
-/** Reads 7,400 as 7400 and 4,8 as 4.8. */
-const plain = (s: string) => s.replace(/(\d),(?=\d{3}(?!\d))/g, '$1').replace(/(\d),(?=\d)/g, '$1.')
+/** Reads 7,400 and 1,50,000 as whole numbers, and 4,8 as 4.8. */
+const plain = (s: string) =>
+  s.replace(/\d{1,3}(?:,\d{2})*,\d{3}(?!\d)/g, (n) => n.replace(/,/g, '')).replace(/(\d),(?=\d)/g, '$1.')
 
 const NUM = String.raw`(-?\d+(?:\.\d+)?)`
 const BETWEEN = new RegExp(String.raw`${NUM}\s*(?:-|–|—|to)\s*${NUM}`, 'i')
