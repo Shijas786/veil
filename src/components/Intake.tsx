@@ -91,8 +91,17 @@ export function Intake(props: {
             takeFile(e.dataTransfer.files[0])
           }}
           onClick={() => fileRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          aria-label="Choose a photo of your report"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              fileRef.current?.click()
+            }
+          }}
           onMouseEnter={() => sfx.hover()}
-          className={`group cursor-pointer rounded-2xl border border-dashed p-6 text-center transition ${drag ? 'border-device bg-device/10' : 'border-white/15 hover:border-device/60 hover:bg-white/[0.03]'}`}
+          className={`group cursor-pointer rounded-2xl border border-dashed outline-none focus-visible:border-device p-6 text-center transition ${drag ? 'border-device bg-device/10' : 'border-white/15 hover:border-device/60 hover:bg-white/[0.03]'}`}
         >
           <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3 }} className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-device/10 text-2xl text-device">
             ⇪
