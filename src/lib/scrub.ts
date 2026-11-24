@@ -30,7 +30,7 @@ const RULES: { kind: string; re: RegExp; group?: number }[] = [
   },
   {
     kind: 'Date',
-    re: /\b(?:\d{1,2}([\/.-])\d{1,2}\1\d{2,4}|\b\d{2}[\/.-]\d{2}[\/.-](?:19|20)\d{2}\b|\d{1,2}[\s-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-,]+\d{2,4})(?:[ ,]+\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?)?/gi,
+    re: /\b(?:\d{1,2}([\/.-])\d{1,2}\1\d{2,4}|\b(?:0?[1-9]|[12]\d|3[01])[\/.-](?:0?[1-9]|1[0-2])[\/.-](?:19|20)\d{2}\b|\d{1,2}[\s-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-,]+\d{2,4})(?:[ ,]+\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?)?/gi,
   },
   {
     kind: 'Address',

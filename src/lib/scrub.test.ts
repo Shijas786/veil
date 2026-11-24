@@ -103,5 +103,6 @@ describe('ranges', () => {
     expect(flagFromRange({ name: 'Platelets', value: '1,200,000', unit: '/µL', range: '150,000 – 450,000', flag: 'unknown' })).toBe('high')
     expect(ageBand(readAge('Age: 8\nmonths'))).toBe('infant')
     expect(scrubText('PSA 1.2 ng/mL 0.0-2000').scrubbed).toContain('0.0-2000')
+    expect(scrubText('DOB: 5/3-1990').scrubbed).not.toContain('1990')
   })
 })
