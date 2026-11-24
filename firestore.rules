@@ -6,6 +6,7 @@ service cloud.firestore {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['createdAt', 'panel', 'headline', 'urgency', 'analytes', 'ageBand', 'sex'])
+        && request.resource.data.analytes is list
         && request.resource.data.analytes.size() <= 40;
     }
   }

@@ -134,9 +134,17 @@ export default function App() {
       setResult(r)
       setStage('results')
       window.scrollTo({ top: 0, behavior: 'smooth' })
-      void saveReport(sealed.packet, r.explanation)
-        .then((docId) => setSaved(Boolean(docId)))
-        .catch(() => {})
+      // History lives in the cloud, so it is only written when the user already sent the packet there.
+      if (r.source === 'in_cloud') {
+        const t0 = performance.now()
+        void saveReport(sealed.packet, r.explanation)
+          .then((docId) => {
+            if (!docId || id !== run.current) return
+            setSaved(true)
+            record({ stage: 'Save to your history', mode: 'Firestore', source: 'in_cloud', ms: performance.now() - t0, payload: JSON.stringify({ ...sealed.packet, headline: r.explanation.headline }), hadImage: false, leftDevice: true, identityExposed: false })
+          })
+          .catch(() => {})
+      }
     } catch (e) {
       if (id !== run.current) return
       stopPad()
@@ -235,7 +243,7 @@ export default function App() {
             />
           )}
           {stage === 'results' && sealed && result && (
-            <Results key="results" packet={sealed.packet} explanation={result.explanation} source={result.source} language={language} ledger={ledger} saved={saved} onLedger={() => setDrawer('ledger')} onRestart={restart} />
+            <Results key="results" packet={sealed.packet} explanation={result.explanation} source={result.source} known={sealed.identifiers.map((i) => i.text)} language={language} ledger={ledger} saved={saved} onLedger={() => setDrawer('ledger')} onRestart={restart} />
           )}
         </AnimatePresence>
       </main>
